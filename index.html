@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>聚火潭云端版 (V2.2)</title>
+    <title>聚火潭云端版 (V2.3)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
 
@@ -41,12 +41,11 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 10;
         }
         .app-title { margin:0; font-size:18px; font-weight:900; display: flex; align-items: center; gap: 5px; }
-        .version-tag { font-size:10px; background:#27ae60; color:#fff; padding:2px 4px; border-radius:4px; }
+        .version-tag { font-size:10px; background:#8e44ad; color:#fff; padding:2px 4px; border-radius:4px; }
         
         .sys-actions { display: flex; gap: 8px; align-items: center; }
         .sys-actions .btn-sm { padding: 6px 10px; font-size: 12px; }
-        .stock-info { font-size: 12px; font-weight: bold; color: #666; } 
-
+        
         /* --- 2. 搜索区域 --- */
         .search-bar-row {
             background: var(--bg-card); 
@@ -169,7 +168,7 @@
     <div class="top-header">
         <h1 class="app-title">
             <span>🔥 聚火潭云端</span> 
-            <span class="version-tag">V2.2 海量版</span>
+            <span class="version-tag">V2.3</span>
         </h1>
         <div class="sys-actions">
             <span class="stock-info">云端共 <span id="dbCountDisp">...</span> 条</span>
@@ -180,7 +179,7 @@
 
     <div class="search-bar-row">
         <div class="search-group" style="flex:1">
-            <input type="text" id="searchInput" class="search-input" placeholder="☁️ 搜: P40 (回车或输入搜索)" autofocus onkeydown="if(event.keyCode==13) doCloudSearch()">
+            <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜: P40 蓝色 (空格=同时满足)" autofocus onkeydown="if(event.keyCode==13) doCloudSearch()">
         </div>
         <div class="exclude-group" style="flex:1">
             <input type="text" id="excludeInput" class="input-exclude" placeholder="🚫 排: 坏 烂">
@@ -241,7 +240,7 @@
 
 <script>
     // ============================================================
-    // 👇👇👇 你的专用钥匙 (V2.2) 👇👇👇
+    // 👇👇👇 你的专用钥匙 👇👇👇
     // ============================================================
     const LC_APP_ID  = "ZjVOXr4my7Gk7mqfDNyeWF8C-gzGzoHsz";
     const LC_APP_KEY = "UJn9xGwLPgzK0wmFvIBPUM8B";
@@ -260,25 +259,23 @@
             alert("云端连接失败：" + e.message);
         }
         
-        // 绑定输入事件（带防抖）
+        // 绑定输入事件（防抖）
         document.getElementById('searchInput').addEventListener('input', (e) => {
              clearTimeout(searchTimer);
-             searchTimer = setTimeout(doCloudSearch, 600); // 停止打字0.6秒后自动搜
+             searchTimer = setTimeout(doCloudSearch, 600); 
         });
         document.getElementById('excludeInput').addEventListener('input', doCloudSearch);
     };
 
-    // --- 核心：云端搜索逻辑 ---
+    // --- 核心：云端搜索逻辑 (修复版) ---
 
-    // 1. 初始化：获取总数 + 最新50条预览
+    // 1. 初始化
     async function loadInitData() {
-        // 获取真实总数
         const countQuery = new AV.Query('Product');
         countQuery.count().then(count => {
             document.getElementById('dbCountDisp').innerText = count;
         });
 
-        // 获取最新预览
         const query = new AV.Query('Product');
         query.limit(50); 
         query.descending('updatedAt');
@@ -289,46 +286,63 @@
         });
     }
 
-    // 2. 执行云端搜索
+    // 2. 执行云端搜索 (核心逻辑修正)
     function doCloudSearch() {
-        const key = document.getElementById('searchInput').value.trim();
-        const exclude = document.getElementById('excludeInput').value.trim();
+        const inputVal = document.getElementById('searchInput').value.trim();
+        const excludeVal = document.getElementById('excludeInput').value.trim();
         
-        // 如果没输入，就显示预览列表
-        if (!key && !exclude) {
+        if (!inputVal && !excludeVal) {
             renderList(previewData, "🆕 最新入库 (仅显示前50条)");
             return;
         }
 
         document.getElementById('resultList').innerHTML = '<div style="text-align:center;padding:40px;color:#666;">☁️ 正在云端查找...</div>';
 
-        const query = new AV.Query('Product');
-        // 模糊搜索
-        if(key) query.contains('name', key);
-        
-        // 云端最多返回100条结果 (保护浏览器)
-        query.limit(100); 
-        query.descending('updatedAt');
+        // --- 关键词处理 (空格分隔 -> 必须同时包含) ---
+        const keys = inputVal.split(/\s+/).filter(k => k); // 把 "P40 蓝色" 拆成 ["P40", "蓝色"]
+        const exKeys = excludeVal.split(/\s+/).filter(k => k);
 
-        query.find().then(results => {
+        let finalQuery;
+
+        // 如果没有关键词，只有排除词，则查询所有(带排除)
+        if (keys.length === 0) {
+            finalQuery = new AV.Query('Product');
+        } else if (keys.length === 1) {
+            // 只有一个词，直接查
+            finalQuery = new AV.Query('Product');
+            finalQuery.contains('name', keys[0]);
+        } else {
+            // 多个词，使用 AND 查询 (必须同时满足)
+            const subQueries = keys.map(k => {
+                const q = new AV.Query('Product');
+                q.contains('name', k);
+                return q;
+            });
+            finalQuery = AV.Query.and(...subQueries);
+        }
+
+        // --- 排除词处理 (云端排除) ---
+        if (exKeys.length > 0) {
+            exKeys.forEach(xk => {
+                finalQuery.doesNotContain('name', xk);
+            });
+        }
+
+        finalQuery.limit(100); 
+        finalQuery.descending('updatedAt');
+
+        finalQuery.find().then(results => {
             let list = results.map(r => ({ id:r.id, name:r.get('name'), main:r.get('main'), sub:r.get('sub') }));
-            
-            // 本地执行“排除”逻辑 (云端排除比较复杂，本地做更稳)
-            if(exclude) {
-                const exKeys = exclude.split(' ').filter(k=>k);
-                list = list.filter(item => !exKeys.some(k => item.name.includes(k)));
-            }
-
-            renderList(list, list.length >= 100 ? "⚠️ 结果过多，仅显示前100条，请细化关键词" : "");
+            renderList(list, list.length >= 100 ? "⚠️ 结果过多，建议增加关键词" : "");
         }).catch(e => {
             console.error(e);
-            document.getElementById('resultList').innerHTML = `<div style="text-align:center;padding:20px;color:red;">搜索出错，请重试</div>`;
+            document.getElementById('resultList').innerHTML = `<div style="text-align:center;padding:20px;color:red;">未找到结果，或网络错误</div>`;
         });
     }
 
     function renderList(data, tipText) {
         const list = document.getElementById('resultList');
-        if(!data.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">🔍 云端未找到相关商品</div>'; return; }
+        if(!data.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">🔍 未找到相关商品</div>'; return; }
         
         let h = '';
         if(tipText) h += `<div style="padding:5px 10px; font-size:12px; color:#999; background:#eee;">${tipText}</div>`;
@@ -352,9 +366,8 @@
         list.innerHTML = h;
     }
 
-    // --- 下面是通用的辅助功能 (上传/打印/选择) ---
+    // --- 上传/打印逻辑 (保持不变) ---
 
-    // 智能上传
     async function saveImport() { 
         const txt = document.getElementById('importArea').value;
         const lines = txt.split('\n');
@@ -388,7 +401,7 @@
             }
             showToast(`✅ 成功导入 ${successCount} 条！`);
             closeImport();
-            loadInitData(); // 刷新计数和列表
+            loadInitData();
         } catch (error) {
             alert("上传中断：" + error.message);
         } finally {
@@ -412,7 +425,6 @@
     function toggleRow(name) {
         if (selectedIds.has(name)) selectedIds.delete(name); else selectedIds.add(name);
         updateFooter(); 
-        // 强制刷新当前列表的选中状态
         const items = document.querySelectorAll('.item');
         items.forEach(el => {
             if(el.querySelector('.item-name').innerText === name) {
@@ -484,28 +496,36 @@
         if(pIdx) LODOP.SET_PRINTER_INDEX(pIdx);
         LODOP.SET_PRINT_PAGESIZE(1, "60mm", "40mm", ""); 
 
-        // 注意：因为现在是云端搜索，allData可能不包含所有选中的项（因为没有全部下载），
-        // 所以我们需要从 DOM 或者重新 fetch 获取详细信息。
-        // 简化版：我们假设用户打印的一定是刚刚搜索看到的。
-        // 为了稳妥，我们直接只打印名字，如果 currentResults 里有就带上仓位，没有就只打名字。
-        
         selectedIds.forEach(name => {
-            // 尝试从当前搜索结果里找详细信息
-            // 这是一个折中方案，对于海量数据，打印前最好确保数据在本地。
-            // 但对于快速打印，只打名字也是通用的。
             let data = {};
-            // 在 previewData 或页面 DOM 里找数据（简化处理）
-            // 实际操作中，仓库员通常是搜出来->点选->打印，所以数据大概率在内存里。
-            const allKnown = [...previewData]; // 这里可以扩展
-            data = allKnown.find(d => d.name === name) || {};
-
+            // 从当前列表中尝试找数据
+            const allKnown = [...previewData]; // 这里可以优化
+            // 如果不在previewData里，因为是云搜索，数据只存在于dom或者临时变量，这里简化处理，直接打名字
+            // 如果需要严格打印仓位，需要保存搜索结果。
+            // 但考虑到用户搜索完后立即打印，DOM里有数据。
+            // 简单遍历 currentResults 
+            // 这里因为作用域问题，previewData可能不够。
+            // 修正：我们打印时，应该只打“已选中”的。
+            // 因为V2.2是云端搜索，数据没有全在本地，所以只能打印名字，或者尝试匹配。
+            // 为简单起见，V2.3版里打印将优先打印名字。
+            
             for(let i=0; i<qty; i++) {
                 LODOP.NewPage();
                 printConfig.forEach(el => {
                     if(el.type === 'qrcode') {
                         LODOP.ADD_PRINT_BARCODE(el.y, el.x, el.w, el.h, "QRCode", name);
                     } else {
-                        let txt = el.val.replace('{商品名}', name).replace('{主仓}', data.main||'').replace('{副仓}', data.sub||'');
+                        // 尝试在页面元素中找仓位信息（聪明做法）
+                        let main='', sub='';
+                        const items = document.querySelectorAll('.item');
+                        items.forEach(it => {
+                             if(it.querySelector('.item-name').innerText === name) {
+                                 main = it.querySelectorAll('.tag-pill')[0]?.innerText.replace('🏠 ','') || '';
+                                 sub = it.querySelectorAll('.tag-pill')[1]?.innerText.replace('🏭 ','') || '';
+                             }
+                        });
+
+                        let txt = el.val.replace('{商品名}', name).replace('{主仓}', main).replace('{副仓}', sub);
                         LODOP.ADD_PRINT_TEXT(el.y, el.x, el.w, el.h, txt);
                         LODOP.SET_PRINT_STYLEA(0, "FontSize", el.fs);
                         if(el.bold) LODOP.SET_PRINT_STYLEA(0, "Bold", 1);
