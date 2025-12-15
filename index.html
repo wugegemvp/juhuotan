@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>聚火潭云端版 (V2.8)</title>
+    <title>聚火潭云端版 (V2.9 无码大字)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
 
@@ -15,7 +15,7 @@
         :root { 
             --bg-body: #f0f2f5;
             --bg-card: #ffffff;
-            --text-main: #000000; /* 全局字体改纯黑 */
+            --text-main: #000000;
             --primary: #000;
             --danger: #c0392b;
             --accent: #d35400;
@@ -55,7 +55,7 @@
         }
         
         .search-input { 
-            width: 100%; padding: 12px; font-size: 18px; font-weight: 900; /* 搜索框字也加大 */
+            width: 100%; padding: 12px; font-size: 18px; font-weight: 900; 
             border: 2px solid #ccc; border-radius: 8px; outline: none; appearance: none;
             color: #000;
         }
@@ -105,54 +105,50 @@
             border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        /* --- 列表区域 (核心修改：大字号样式) --- */
+        /* --- 列表区域 (屏幕显示调整) --- */
         .result-list { 
             flex: 1; overflow-y: auto; background: #f0f2f5; padding: 10px; 
             -webkit-overflow-scrolling: touch;
         }
 
         .item { 
-            background: #fff; border-radius: 8px; margin-bottom: 10px; padding: 15px; /* 加大内边距 */
-            display: flex; flex-direction: column; gap: 8px; /* 增加间距 */
+            background: #fff; border-radius: 8px; margin-bottom: 10px; padding: 15px;
+            display: grid; 
+            grid-template-columns: 30px 1fr; /* 左边勾选框，右边内容 */
+            gap: 5px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid transparent;
         }
         .item.selected { background: #fff8f0 !important; border-color: #d35400; }
         .item.selected .item-name { color: #d35400; }
 
-        .item-top { display: flex; align-items: flex-start; gap: 12px; }
-        .item-checkbox { transform: scale(1.6); margin-top: 5px; } /* 复选框也加大 */
-        .item-idx { font-size: 12px; color: #999; background: #eee; padding: 2px 6px; border-radius: 4px; height: fit-content; margin-top: 3px;}
-        
-        /* 🔥 商品名：加大加黑 */
+        /* 左侧勾选框垂直居中 */
+        .item-left { display: flex; align-items: center; justify-content: center; grid-row: span 2; }
+        .item-checkbox { transform: scale(1.8); } 
+
+        /* 🔥 商品名：20px 特大加粗 */
         .item-name { 
-            flex: 1; 
             font-weight: 900; 
-            font-size: 18px; /* 加大字号 */
-            line-height: 1.4; 
-            color: #000; /* 纯黑 */
+            font-size: 20px; 
+            line-height: 1.3; 
+            color: #000;
+            align-self: center;
         }
         
-        /* 🔥 库位显示区域 */
+        /* 🔥 库位：20px 特大加粗 (和上面一样大) */
         .item-btm { 
             display: flex; 
-            justify-content: flex-start; /* 左对齐 */
+            justify-content: flex-start;
             gap: 15px;
-            margin-top: 5px; 
-            padding-top: 5px; 
-            /* border-top: 1px dashed #eee; 去掉分割线，看起来更连贯 */
-            padding-left: 42px; /* 跟上面的文字对齐 (避开复选框宽度) */
+            align-items: center;
         }
 
-        /* 🔥 库位标签：改成大字纯文本风格 */
         .tag-pill { 
-            background: transparent; /* 去掉灰色背景 */
+            background: transparent; 
             padding: 0; 
-            font-size: 18px; /* 跟商品名一样大！ */
-            font-weight: 900; /* 最粗 */
-            color: #000; /* 纯黑 */
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            font-size: 20px; /* 统一字号 */
+            font-weight: 900; /* 统一加粗 */
+            color: #000; /* 统一纯黑 */
+            display: flex; align-items: center; gap: 5px;
         }
 
         /* 弹窗 */
@@ -182,7 +178,6 @@
             .modal { align-items: center; }
             .modal-content { width: 500px; border-radius: 8px; max-height: 80vh; }
             .search-bar-row { flex-direction: row; }
-            .item-btm { padding-left: 0; } /* 电脑端不需缩进 */
         }
     </style>
 </head>
@@ -191,7 +186,7 @@
     <div class="top-header">
         <h1 class="app-title">
             <span>🔥 聚火潭云端</span> 
-            <span class="version-tag">V2.8</span>
+            <span class="version-tag">V2.9</span>
         </h1>
         <div class="sys-actions">
             <span class="stock-info">云端共 <span id="dbCountDisp">...</span> 条</span>
@@ -263,7 +258,7 @@
 
 <script>
     // ============================================================
-    // 👇👇👇 你的专用钥匙 (V2.8) 👇👇👇
+    // 👇👇👇 你的专用钥匙 (V2.9) 👇👇👇
     // ============================================================
     const LC_APP_ID  = "ZjVOXr4my7Gk7mqfDNyeWF8C-gzGzoHsz";
     const LC_APP_KEY = "UJn9xGwLPgzK0wmFvIBPUM8B";
@@ -282,7 +277,6 @@
             alert("云端连接失败：" + e.message);
         }
         
-        // 绑定输入事件（防抖）
         document.getElementById('searchInput').addEventListener('input', (e) => {
              clearTimeout(searchTimer);
              searchTimer = setTimeout(doCloudSearch, 600); 
@@ -321,7 +315,6 @@
 
         const keys = inputVal.split(/\s+/).filter(k => k);
         const exKeys = excludeVal.split(/\s+/).filter(k => k);
-
         let finalQuery;
         const escapeReg = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -373,11 +366,14 @@
             const safeName = item.name.replace(/"/g, "&quot;");
             h += `
             <div class="item ${isSel?'selected':''}" onclick="toggleRow('${safeName}')">
-                <div class="item-top">
+                <div class="item-left">
                     <input type="checkbox" class="item-checkbox" ${isSel?'checked':''} readonly>
-                    <span class="item-idx">${idx+1}</span>
-                    <div class="item-name">${item.name}</div>
+                    <div style="font-size:10px;color:#ccc;margin-top:2px;">${idx+1}</div>
                 </div>
+                <div class="item-name">${item.name}</div>
+                
+                <div></div> 
+                
                 <div class="item-btm">
                     <span class="tag-pill">🏠 ${item.main||'-'}</span>
                     <span class="tag-pill">🏭 ${item.sub||'-'}</span>
@@ -497,13 +493,16 @@
         confirmPrint('DIRECT');
     }
 
-    // 打印配置：保持大字号
+    // 🔥 V2.9 打印布局：无二维码，纯文字超大！
     const printConfig = [ 
-        {type:'qrcode', x:2, y:2, w:22, h:22}, 
-        // 这里也做了微调，让打印出来的名字和库位看起来也协调一些
-        {type:'text', val:'{商品名}', x:26, y:5, w:32, h:12, fs:11, bold:true},
-        {type:'text', val:'{主仓}', x:26, y:18, w:32, h:20, fs:24, bold:true},
-        {type:'text', val:'{副仓}', x:26, y:34, w:32, h:6, fs:10, bold:true}
+        // 1. 商品名：顶行，超大
+        {type:'text', val:'{商品名}', x:5, y:5, w:55, h:15, fs:14, bold:true},
+
+        // 2. 主库位：第二行，巨大无比！
+        {type:'text', val:'{主仓}', x:5, y:22, w:30, h:15, fs:28, bold:true},
+
+        // 3. 副库位：跟在主库位后面，或者换行，这里放右侧
+        {type:'text', val:'{副仓}', x:40, y:26, w:20, h:10, fs:12, bold:true}
     ];
 
     function confirmPrint(mode) {
@@ -524,7 +523,7 @@
                 LODOP.NewPage();
                 printConfig.forEach(el => {
                     if(el.type === 'qrcode') {
-                        LODOP.ADD_PRINT_BARCODE(el.y, el.x, el.w, el.h, "QRCode", name);
+                        // V2.9: 已禁用二维码
                     } else {
                         let main='', sub='';
                         const items = document.querySelectorAll('.item');
