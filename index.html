@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>聚火潭云端版 (V2.7 特大库位)</title>
+    <title>聚火潭云端版 (V2.8)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
 
@@ -15,7 +15,7 @@
         :root { 
             --bg-body: #f0f2f5;
             --bg-card: #ffffff;
-            --text-main: #2c3e50;
+            --text-main: #000000; /* 全局字体改纯黑 */
             --primary: #000;
             --danger: #c0392b;
             --accent: #d35400;
@@ -41,7 +41,7 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 10;
         }
         .app-title { margin:0; font-size:18px; font-weight:900; display: flex; align-items: center; gap: 5px; }
-        .version-tag { font-size:10px; background:#2c3e50; color:#fff; padding:2px 4px; border-radius:4px; }
+        .version-tag { font-size:10px; background:#000; color:#fff; padding:2px 4px; border-radius:4px; }
         
         .sys-actions { display: flex; gap: 8px; align-items: center; }
         .sys-actions .btn-sm { padding: 6px 10px; font-size: 12px; }
@@ -55,8 +55,9 @@
         }
         
         .search-input { 
-            width: 100%; padding: 12px; font-size: 16px; font-weight: bold; 
+            width: 100%; padding: 12px; font-size: 18px; font-weight: 900; /* 搜索框字也加大 */
             border: 2px solid #ccc; border-radius: 8px; outline: none; appearance: none;
+            color: #000;
         }
         .search-input:focus { border-color: var(--primary); }
 
@@ -67,7 +68,7 @@
             background: #fff5f5; color: #c0392b;
         }
 
-        /* --- 3. 操作行 (工具栏) --- */
+        /* --- 3. 操作行 --- */
         .middle-toolbar {
             background: #e8eaf6; padding: 10px; 
             display: flex; gap: 8px; overflow-x: auto; white-space: nowrap;
@@ -104,30 +105,55 @@
             border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        /* --- 列表区域 --- */
+        /* --- 列表区域 (核心修改：大字号样式) --- */
         .result-list { 
             flex: 1; overflow-y: auto; background: #f0f2f5; padding: 10px; 
             -webkit-overflow-scrolling: touch;
         }
 
         .item { 
-            background: #fff; border-radius: 8px; margin-bottom: 10px; padding: 12px;
-            display: flex; flex-direction: column; gap: 5px;
+            background: #fff; border-radius: 8px; margin-bottom: 10px; padding: 15px; /* 加大内边距 */
+            display: flex; flex-direction: column; gap: 8px; /* 增加间距 */
             box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid transparent;
         }
-        .item.selected { background: #e6f7ff !important; border-color: #1890ff; }
-        .item.selected .item-name { color: #c0392b; }
+        .item.selected { background: #fff8f0 !important; border-color: #d35400; }
+        .item.selected .item-name { color: #d35400; }
 
-        .item-top { display: flex; align-items: flex-start; gap: 10px; }
-        .item-checkbox { transform: scale(1.5); margin-top: 4px; }
-        .item-idx { font-size: 12px; color: #999; background: #eee; padding: 2px 6px; border-radius: 4px; height: fit-content;}
-        .item-name { flex: 1; font-weight: bold; font-size: 16px; line-height: 1.4; word-break: break-all; }
+        .item-top { display: flex; align-items: flex-start; gap: 12px; }
+        .item-checkbox { transform: scale(1.6); margin-top: 5px; } /* 复选框也加大 */
+        .item-idx { font-size: 12px; color: #999; background: #eee; padding: 2px 6px; border-radius: 4px; height: fit-content; margin-top: 3px;}
         
-        .item-btm { 
-            display: flex; justify-content: space-between; margin-top: 5px; 
-            padding-top: 5px; border-top: 1px dashed #eee; font-size: 13px; color: #666;
+        /* 🔥 商品名：加大加黑 */
+        .item-name { 
+            flex: 1; 
+            font-weight: 900; 
+            font-size: 18px; /* 加大字号 */
+            line-height: 1.4; 
+            color: #000; /* 纯黑 */
         }
-        .tag-pill { background: #f0f0f0; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+        
+        /* 🔥 库位显示区域 */
+        .item-btm { 
+            display: flex; 
+            justify-content: flex-start; /* 左对齐 */
+            gap: 15px;
+            margin-top: 5px; 
+            padding-top: 5px; 
+            /* border-top: 1px dashed #eee; 去掉分割线，看起来更连贯 */
+            padding-left: 42px; /* 跟上面的文字对齐 (避开复选框宽度) */
+        }
+
+        /* 🔥 库位标签：改成大字纯文本风格 */
+        .tag-pill { 
+            background: transparent; /* 去掉灰色背景 */
+            padding: 0; 
+            font-size: 18px; /* 跟商品名一样大！ */
+            font-weight: 900; /* 最粗 */
+            color: #000; /* 纯黑 */
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
 
         /* 弹窗 */
         .modal { 
@@ -152,14 +178,11 @@
         }
         #toast.active { opacity: 1; }
 
-        .btn-sm { border:1px solid #ccc; padding:6px 12px; border-radius:4px; font-weight:bold; background:#fff; }
-        .btn-brain { background:#3498db; color:#fff; border:none; }
-        .btn-danger-sm { color:red; border-color:red; }
-
         @media (min-width: 769px) {
             .modal { align-items: center; }
             .modal-content { width: 500px; border-radius: 8px; max-height: 80vh; }
             .search-bar-row { flex-direction: row; }
+            .item-btm { padding-left: 0; } /* 电脑端不需缩进 */
         }
     </style>
 </head>
@@ -168,12 +191,12 @@
     <div class="top-header">
         <h1 class="app-title">
             <span>🔥 聚火潭云端</span> 
-            <span class="version-tag">V2.7</span>
+            <span class="version-tag">V2.8</span>
         </h1>
         <div class="sys-actions">
             <span class="stock-info">云端共 <span id="dbCountDisp">...</span> 条</span>
-            <button class="btn-sm" onclick="openImport()">导入</button>
-            <button class="btn-sm btn-danger-sm" onclick="clearDB()">清空</button>
+            <button class="btn-sm btn-normal" onclick="openImport()">导入</button>
+            <button class="btn-sm btn-normal" style="color:red;" onclick="clearDB()">清空</button>
         </div>
     </div>
 
@@ -240,7 +263,7 @@
 
 <script>
     // ============================================================
-    // 👇👇👇 你的专用钥匙 (V2.7) 👇👇👇
+    // 👇👇👇 你的专用钥匙 (V2.8) 👇👇👇
     // ============================================================
     const LC_APP_ID  = "ZjVOXr4my7Gk7mqfDNyeWF8C-gzGzoHsz";
     const LC_APP_KEY = "UJn9xGwLPgzK0wmFvIBPUM8B";
@@ -269,7 +292,6 @@
 
     // --- 核心：云端搜索逻辑 ---
 
-    // 1. 初始化
     async function loadInitData() {
         const countQuery = new AV.Query('Product');
         countQuery.count().then(count => {
@@ -286,7 +308,6 @@
         });
     }
 
-    // 2. 执行云端搜索
     function doCloudSearch() {
         const inputVal = document.getElementById('searchInput').value.trim();
         const excludeVal = document.getElementById('excludeInput').value.trim();
@@ -298,7 +319,6 @@
 
         document.getElementById('resultList').innerHTML = '<div style="text-align:center;padding:40px;color:#666;">☁️ 正在云端查找...</div>';
 
-        // 关键词拆分 (空格分隔)
         const keys = inputVal.split(/\s+/).filter(k => k);
         const exKeys = excludeVal.split(/\s+/).filter(k => k);
 
@@ -477,18 +497,12 @@
         confirmPrint('DIRECT');
     }
 
-    // 🔥 V2.7 打印布局：库位号是主角！
+    // 打印配置：保持大字号
     const printConfig = [ 
-        // 1. 二维码：左侧，稍微缩小一点给文字腾地
         {type:'qrcode', x:2, y:2, w:22, h:22}, 
-
-        // 2. 商品名：右侧上部，对其
-        {type:'text', val:'{商品名}', x:26, y:2, w:32, h:12, fs:9, bold:true},
-
-        // 3. 主库位：右侧中下，超级大！！(30号字)
-        {type:'text', val:'{主仓}', x:26, y:14, w:32, h:20, fs:30, bold:true},
-
-        // 4. 副库位：右侧最底下，辅助显示
+        // 这里也做了微调，让打印出来的名字和库位看起来也协调一些
+        {type:'text', val:'{商品名}', x:26, y:5, w:32, h:12, fs:11, bold:true},
+        {type:'text', val:'{主仓}', x:26, y:18, w:32, h:20, fs:24, bold:true},
         {type:'text', val:'{副仓}', x:26, y:34, w:32, h:6, fs:10, bold:true}
     ];
 
