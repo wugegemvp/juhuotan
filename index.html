@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>聚火潭云端版 (V2.5 完美搜)</title>
+    <title>聚火潭云端版 (V2.6 大字版)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
 
@@ -41,7 +41,7 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 10;
         }
         .app-title { margin:0; font-size:18px; font-weight:900; display: flex; align-items: center; gap: 5px; }
-        .version-tag { font-size:10px; background:#2980b9; color:#fff; padding:2px 4px; border-radius:4px; }
+        .version-tag { font-size:10px; background:#d35400; color:#fff; padding:2px 4px; border-radius:4px; }
         
         .sys-actions { display: flex; gap: 8px; align-items: center; }
         .sys-actions .btn-sm { padding: 6px 10px; font-size: 12px; }
@@ -168,7 +168,7 @@
     <div class="top-header">
         <h1 class="app-title">
             <span>🔥 聚火潭云端</span> 
-            <span class="version-tag">V2.5 完美搜</span>
+            <span class="version-tag">V2.6 大字版</span>
         </h1>
         <div class="sys-actions">
             <span class="stock-info">云端共 <span id="dbCountDisp">...</span> 条</span>
@@ -240,7 +240,7 @@
 
 <script>
     // ============================================================
-    // 👇👇👇 你的专用钥匙 (新账号) 👇👇👇
+    // 👇👇👇 你的专用钥匙 (V2.6) 👇👇👇
     // ============================================================
     const LC_APP_ID  = "ZjVOXr4my7Gk7mqfDNyeWF8C-gzGzoHsz";
     const LC_APP_KEY = "UJn9xGwLPgzK0wmFvIBPUM8B";
@@ -267,7 +267,7 @@
         document.getElementById('excludeInput').addEventListener('input', doCloudSearch);
     };
 
-    // --- 核心：云端搜索逻辑 (大小写通吃版) ---
+    // --- 核心：云端搜索逻辑 ---
 
     // 1. 初始化
     async function loadInitData() {
@@ -286,7 +286,7 @@
         });
     }
 
-    // 2. 执行云端搜索 (核心逻辑)
+    // 2. 执行云端搜索
     function doCloudSearch() {
         const inputVal = document.getElementById('searchInput').value.trim();
         const excludeVal = document.getElementById('excludeInput').value.trim();
@@ -303,26 +303,20 @@
         const exKeys = excludeVal.split(/\s+/).filter(k => k);
 
         let finalQuery;
-
-        // 正则转义函数 (防止搜 * ? 报错)
         const escapeReg = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
         // 构建查询：使用正则实现 [忽略大小写] + [空格隔开同时满足]
         if (keys.length === 0) {
             finalQuery = new AV.Query('Product');
         } else {
-            // 对每个关键词，都创建一个“忽略大小写”的查询
             const subQueries = keys.map(k => {
                 const q = new AV.Query('Product');
-                // 'i' 表示 ignore case (忽略大小写)
                 q.matches('name', new RegExp(escapeReg(k), 'i'));
                 return q;
             });
-            
             if (subQueries.length === 1) {
                 finalQuery = subQueries[0];
             } else {
-                // 必须同时满足所有关键词
                 finalQuery = AV.Query.and(...subQueries);
             }
         }
@@ -334,7 +328,7 @@
         finalQuery.find().then(results => {
             let list = results.map(r => ({ id:r.id, name:r.get('name'), main:r.get('main'), sub:r.get('sub') }));
             
-            // 本地执行“排除”逻辑 (本地也做忽略大小写处理)
+            // 本地执行“排除”逻辑
             if (exKeys.length > 0) {
                 const lowerExKeys = exKeys.map(k => k.toLowerCase());
                 list = list.filter(item => {
@@ -486,11 +480,15 @@
         confirmPrint('DIRECT');
     }
 
+    // 🔥 调整后的打印配置：大字号库位
     const printConfig = [ 
-        {type:'qrcode', x:2, y:2, w:26, h:26}, 
-        {type:'text', val:'{商品名}', x:32, y:5, w:180, h:24, fs:13, bold:true},
-        {type:'text', val:'{主仓}', x:32, y:30, w:100, h:20, fs:16, bold:true},
-        {type:'text', val:'{副仓}', x:92, y:34, w:60, h:15, fs:12, bold:true}
+        {type:'qrcode', x:5, y:5, w:30, h:30}, 
+        // 名字缩小一点，给库位腾地
+        {type:'text', val:'{商品名}', x:38, y:5, w:180, h:20, fs:11, bold:true},
+        // 主仓极大
+        {type:'text', val:'{主仓}', x:38, y:25, w:100, h:35, fs:24, bold:true},
+        // 副仓也大
+        {type:'text', val:'{副仓}', x:130, y:30, w:80, h:25, fs:16, bold:true}
     ];
 
     function confirmPrint(mode) {
