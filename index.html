@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>聚火潭云端版 (Online)</title>
+    <title>聚火潭云端版 (V2.1)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
 
@@ -170,7 +170,7 @@
     <div class="top-header">
         <h1 class="app-title">
             <span>🔥 聚火潭云端</span> 
-            <span class="version-tag">Online</span>
+            <span class="version-tag">V2.1</span>
         </h1>
         <div class="sys-actions">
             <span class="stock-info">共 <span id="dbCountDisp">0</span> 条</span>
@@ -207,12 +207,12 @@
 
     <div id="importModal" class="modal">
         <div class="modal-content">
-            <h3>📥 批量导入 (存入云端)</h3>
+            <h3>📥 批量导入 (智能防卡死)</h3>
             <textarea id="importArea" style="width:100%; height:150px; padding:10px; border:1px solid #ccc; border-radius:8px;" placeholder="粘贴Excel内容：名称 | 主仓 | 副仓"></textarea>
-            <div style="font-size:12px; color:#666;">* 建议每次导入不超过 500 条</div>
+            <div style="font-size:12px; color:#666;">* 程序会自动分批上传，请耐心等待进度条走完</div>
             <div style="display:flex; gap:10px; width:100%;">
                 <button class="btn-normal" style="flex:1" onclick="closeImport()">取消</button>
-                <button class="btn-flash-print" style="flex:1" onclick="saveImport()">☁️ 上传云端</button>
+                <button class="btn-flash-print" style="flex:1" onclick="saveImport()">☁️ 开始上传</button>
             </div>
         </div>
     </div>
@@ -291,16 +291,16 @@
         });
     }
 
-    // 2. 上传数据到云端
-    function saveImport() { 
+    // 2. 智能分批上传 (核心修复：解决 1万条数据卡死问题)
+    async function saveImport() { 
         const txt = document.getElementById('importArea').value;
         const lines = txt.split('\n');
         let objectsToSave = [];
 
+        // 解析数据
         lines.forEach(l => {
-            const p = l.split(/\t|\|/); // 支持 Tab 或 | 分隔
+            const p = l.split(/\t|\|/);
             if(p[0]?.trim()){
-                // 创建一个 Product 对象
                 const product = new AV.Object('Product');
                 product.set('name', p[0].trim());
                 product.set('main', p[1]?.trim()||'');
@@ -309,18 +309,48 @@
             }
         });
 
-        if(objectsToSave.length === 0) return showToast("没检测到有效数据");
+        const total = objectsToSave.length;
+        if(total === 0) return showToast("没检测到有效数据");
 
-        showToast(`正在上传 ${objectsToSave.length} 条...`);
-        
-        // 批量保存
-        AV.Object.saveAll(objectsToSave).then(() => {
-            showToast("✅ 上传成功！");
+        // 准备开始上传
+        const BATCH_SIZE = 50; // 每次只传 50 条 (防止卡死和超限)
+        let successCount = 0;
+        const btn = document.querySelector('#importModal .btn-flash-print');
+        const originalText = btn.innerText;
+
+        btn.disabled = true; // 锁定按钮
+
+        try {
+            for (let i = 0; i < total; i += BATCH_SIZE) {
+                // 截取一小批
+                const chunk = objectsToSave.slice(i, i + BATCH_SIZE);
+                
+                // 更新按钮文字告诉进度
+                btn.innerText = `⏳ 正在上传 ${i}/${total}...`;
+                
+                // 发送上传指令
+                await AV.Object.saveAll(chunk);
+                successCount += chunk.length;
+                
+                // 休息 0.2 秒，防止服务器以为是攻击
+                await new Promise(r => setTimeout(r, 200)); 
+            }
+            
+            showToast(`✅ 成功导入 ${successCount} 条！`);
             closeImport();
             loadDataCloud(); // 重新拉取
-        }).catch((error) => {
-            alert("上传失败：" + error.message);
-        });
+        } catch (error) {
+            console.error(error);
+            if (error.message.includes('400') || error.message.includes('limit')) {
+                alert("⛔️ 上传暂停：\n今天的免费API额度已用完！\n请明天再继续上传剩下的数据。");
+            } else {
+                alert("上传中断：" + error.message);
+            }
+        } finally {
+            // 恢复按钮
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }
     }
 
     // 3. 清空云端数据
@@ -453,8 +483,7 @@
         else localStorage.setItem('DefaultPrinterIndex', pIdx);
 
         const qty = parseInt(document.getElementById('globalQty').value) || 1;
-        const dateStr = new Date().toLocaleDateString();
-
+        
         LODOP.PRINT_INIT("Cloud_Print_Task");
         if(pIdx) LODOP.SET_PRINTER_INDEX(pIdx);
         LODOP.SET_PRINT_PAGESIZE(1, "60mm", "40mm", ""); 
@@ -481,5 +510,3 @@
 </script>
 </body>
 </html>
-
-
