@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>极速搜索 & 标签打印 (移动版 V106)</title>
+    <title>聚火潭云端版 (Online)</title>
     
+    <script src="//code.bdstatic.com/npm/leancloud-storage@4.13.2/dist/av-min.js"></script>
+
     <script src="http://localhost:8000/CLodopfuncs.js"></script>
     <script src="http://localhost:18000/CLodopfuncs.js"></script>
 
     <style>
-        /* --- 1. 基础变量 (移动端优先调整) --- */
+        /* --- 1. 基础变量 --- */
         :root { 
             --bg-body: #f0f2f5;
             --bg-card: #ffffff;
@@ -41,12 +43,11 @@
         .app-title { margin:0; font-size:18px; font-weight:900; display: flex; align-items: center; gap: 5px; }
         .version-tag { font-size:10px; background:var(--accent); color:#fff; padding:2px 4px; border-radius:4px; }
         
-        /* 移动端顶部操作区简化 */
         .sys-actions { display: flex; gap: 8px; align-items: center; }
         .sys-actions .btn-sm { padding: 6px 10px; font-size: 12px; }
-        .stock-info { display: none; } /* 手机上隐藏库存文字，节省空间 */
+        .stock-info { font-size: 12px; font-weight: bold; color: #666; } 
 
-        /* --- 2. 搜索区域 (改为竖排) --- */
+        /* --- 2. 搜索区域 --- */
         .search-bar-row {
             background: var(--bg-card); 
             padding: 10px;
@@ -71,10 +72,8 @@
         .middle-toolbar {
             background: #e8eaf6; padding: 10px; 
             display: flex; gap: 8px; overflow-x: auto; white-space: nowrap;
-            -webkit-overflow-scrolling: touch; /*以此实现平滑滚动*/
+            -webkit-overflow-scrolling: touch;
         }
-        
-        /* 隐藏滚动条但保留功能 */
         .middle-toolbar::-webkit-scrollbar { display: none; }
 
         .btn-flash-print {
@@ -106,9 +105,7 @@
             border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        /* --- 列表区域 (卡片化) --- */
-        .list-header { display: none; } /* 手机端隐藏表头 */
-        
+        /* --- 列表区域 --- */
         .result-list { 
             flex: 1; overflow-y: auto; background: #f0f2f5; padding: 10px; 
             -webkit-overflow-scrolling: touch;
@@ -118,12 +115,8 @@
             background: #fff; border-radius: 8px; margin-bottom: 10px; padding: 12px;
             display: flex; flex-direction: column; gap: 5px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid transparent;
-            height: auto !important; /* 覆盖行高 */
         }
-        
-        .item.selected { 
-            background: #e6f7ff !important; border-color: #1890ff; 
-        }
+        .item.selected { background: #e6f7ff !important; border-color: #1890ff; }
         .item.selected .item-name { color: #c0392b; }
 
         .item-top { display: flex; align-items: flex-start; gap: 10px; }
@@ -137,11 +130,11 @@
         }
         .tag-pill { background: #f0f0f0; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
 
-        /* 弹窗通用样式 */
+        /* 弹窗 */
         .modal { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0,0,0,0.6); display: none; z-index: 2000; 
-            justify-content: center; align-items: flex-end; /* 底部弹出 */
+            justify-content: center; align-items: flex-end;
         }
         .modal-content { 
             background: white; width: 100%; border-radius: 16px 16px 0 0; 
@@ -151,51 +144,6 @@
         }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
-        /* 编辑器适配 */
-        #editorOverlay { 
-            position:fixed; top:0; left:0; width:100%; height:100%; 
-            background:#dfe4ea; z-index:3000; display:none; flex-direction:column; 
-        }
-        .editor-header { 
-            height: 50px; background: #fff; padding: 0 15px; 
-            display: flex; justify-content: space-between; align-items: center; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .editor-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .canvas-area { 
-            flex: 1; background-color: #ced6e0; overflow: auto; 
-            display: flex; justify-content: center; align-items: center; padding: 20px;
-        }
-        /* 编辑器设置面板 - 变为底部可滚动区域 */
-        .settings-panel { 
-            height: 40%; background: #fff; padding: 15px; overflow-y: auto; 
-            border-top: 1px solid #ccc; display: flex; flex-direction: column; gap: 10px;
-        }
-        
-        /* 编辑器内部控件 */
-        .form-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-        .form-row label { width: 50px; font-size: 12px; }
-        .form-row input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-        .half { flex: 1; display: flex; align-items: center; }
-
-        .align-btn { width: 36px; height: 36px; font-size: 18px; margin: 2px; border:1px solid #ccc; border-radius: 4px; background: #fff;}
-        
-        .var-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
-        .var-tag { padding: 6px 12px; background: #eee; border-radius: 15px; font-size: 12px; }
-
-        /* 拖拽元素样式 */
-        .drag-element { 
-            position: absolute; border: 1px dashed #999; 
-            display: flex; overflow: hidden; white-space: nowrap; line-height: 1.2; 
-            font-family:"Microsoft YaHei"; touch-action: none; /* 禁止浏览器默认触摸行为 */
-        }
-        .drag-element.active { border: 2px solid #000; background-color: rgba(0,0,0,0.05); z-index: 100; }
-        .resize-handle { 
-            position: absolute; bottom: -5px; right: -5px; width: 20px; height: 20px; 
-            background: #000; border-radius: 50%; border: 2px solid #fff; display: none; z-index:101;
-        }
-        .drag-element.active .resize-handle { display: block; }
-        
         /* 吐司提示 */
         #toast { 
             position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); 
@@ -206,38 +154,14 @@
         }
         #toast.active { opacity: 1; }
 
-        /* 打印列表微调 */
-        .print-list { max-height: 200px; overflow-y: auto; border: 1px solid #eee; margin-top: 10px; }
-        .print-item { padding: 12px; border-bottom: 1px solid #eee; }
-
         .btn-sm { border:1px solid #ccc; padding:6px 12px; border-radius:4px; font-weight:bold; background:#fff; }
         .btn-brain { background:#3498db; color:#fff; border:none; }
         .btn-danger-sm { color:red; border-color:red; }
 
-        /* 电脑端保留的一些样式适配 */
         @media (min-width: 769px) {
             .modal { align-items: center; }
             .modal-content { width: 500px; border-radius: 8px; max-height: 80vh; }
             .search-bar-row { flex-direction: row; }
-            .list-header { display: grid; }
-            .result-list { padding: 0; }
-            .item { 
-                margin: 0; border-radius: 0; box-shadow: none; padding: 0; 
-                display: grid; border-bottom: 1px solid #eee; 
-            }
-            .item-top { display: contents; }
-            .item-btm { display: contents; }
-            .tag-pill { background: none; padding: 0; }
-            .item-idx, .item-checkbox { display: none; } /* PC端用grid自带的 */
-            
-            /* 恢复PC端的Grid结构，这里为了兼容上面的HTML结构需要trick一下，
-               或者通过JS判断。为简单起见，PC端也使用Card布局或者在JS里渲染不同HTML。
-               为了代码唯一性，这里保持Card布局在PC端也是可用的，只是宽一点。
-               如果非常需要PC端表格，建议用两套CSS。
-               这里我主要优化移动端。
-            */
-             .editor-main { flex-direction: row; }
-             .settings-panel { width: 320px; height: 100%; border-top: none; border-left: 1px solid #ccc; }
         }
     </style>
 </head>
@@ -245,22 +169,22 @@
 
     <div class="top-header">
         <h1 class="app-title">
-            <span id="pageMainTitle">🔍 极速打印</span> 
-            <span class="version-tag">M106</span>
+            <span>🔥 聚火潭云端</span> 
+            <span class="version-tag">Online</span>
         </h1>
         <div class="sys-actions">
-            <span class="stock-info" id="dbCountDisp">0</span>
-            <button class="btn-sm btn-brain" onclick="openAliasModal()">训练</button>
+            <span class="stock-info">共 <span id="dbCountDisp">0</span> 条</span>
+            <button class="btn-sm btn-brain" onclick="alert('云端版目前仅支持精确搜索，别名功能开发中...')">训练</button>
             <button class="btn-sm" onclick="openImport()">导入</button>
             <button class="btn-sm btn-danger-sm" onclick="clearDB()">清空</button>
         </div>
     </div>
 
     <div class="search-bar-row">
-        <div class="search-group">
-            <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜: P40 蓝色" autofocus>
+        <div class="search-group" style="flex:1">
+            <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜: P40 蓝色 (云端同步)" autofocus>
         </div>
-        <div class="exclude-group">
+        <div class="exclude-group" style="flex:1">
             <input type="text" id="excludeInput" class="input-exclude" placeholder="🚫 排: 坏 烂">
         </div>
     </div>
@@ -268,7 +192,6 @@
     <div class="middle-toolbar">
         <button class="btn-flash-print" onclick="quickDirectPrint()">⚡️ 直接打印</button>
         <button class="btn-normal" onclick="openPrintModal()">⚙️ 设置/预览</button>
-        <button class="btn-normal" onclick="openEditor()">🎨 模版</button>
     </div>
 
     <div class="sel-wrapper" id="selWrapper">
@@ -277,51 +200,40 @@
     </div>
 
     <div id="resultList" class="result-list">
-        <div style="text-align:center; padding:40px; color:#999;">👇 输入关键词搜索...</div>
+        <div style="text-align:center; padding:40px; color:#999;">☁️ 正在连接云端数据库...</div>
     </div>
 
     <div id="toast">✅ 已复制</div>
 
-    <div id="aliasModal" class="modal">
+    <div id="importModal" class="modal">
         <div class="modal-content">
-            <h3 style="margin:0; border-bottom:1px solid #eee; padding-bottom:10px;">🧠 关键词训练</h3>
-            <div style="display:flex; gap:10px; align-items:center;">
-                <input type="text" id="newAliasKey" class="search-input" style="font-size:14px; padding:8px;" placeholder="原词(p80)">
-                <span>➡️</span>
-                <input type="text" id="newAliasVal" class="search-input" style="font-size:14px; padding:8px;" placeholder="目标(pura80)">
+            <h3>📥 批量导入 (存入云端)</h3>
+            <textarea id="importArea" style="width:100%; height:150px; padding:10px; border:1px solid #ccc; border-radius:8px;" placeholder="粘贴Excel内容：名称 | 主仓 | 副仓"></textarea>
+            <div style="font-size:12px; color:#666;">* 建议每次导入不超过 500 条</div>
+            <div style="display:flex; gap:10px; width:100%;">
+                <button class="btn-normal" style="flex:1" onclick="closeImport()">取消</button>
+                <button class="btn-flash-print" style="flex:1" onclick="saveImport()">☁️ 上传云端</button>
             </div>
-            <button class="btn-flash-print" style="width:100%; margin-top:10px; height:36px; font-size:14px;" onclick="addAlias()">➕ 添加规则</button>
-            
-            <div style="flex:1; overflow-y:auto; border:1px solid #eee; border-radius:4px; padding:5px;">
-                <table style="width:100%; font-size:13px;" id="aliasTable">
-                    </table>
-            </div>
-            <button class="btn-normal" style="width:100%;" onclick="closeAliasModal()">关闭</button>
         </div>
     </div>
 
     <div id="printModal" class="modal">
         <div class="modal-content">
             <h3 style="margin:0; border-bottom:1px solid #eee; padding-bottom:10px;">🖨️ 打印设置</h3>
-            
             <div style="background:#fff3cd; padding:10px; border-radius:4px; font-size:12px; color:#856404;">
-                ⚠️ 手机直接打印需确保打印服务(C-Lodop) IP地址正确，且在同一局域网。
+                ⚠️ 手机打印需电脑开启 C-Lodop 服务，且在同一局域网。
             </div>
-
             <label style="font-weight:bold; font-size:14px;">选择打印机:</label>
             <select id="printerSelect" style="width:100%; padding:10px; border:2px solid #ccc; border-radius:4px; font-size:16px; background:#fff;">
                 <option>加载中...</option>
             </select>
-
             <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
                 <label style="font-weight:bold;">每款数量:</label>
                 <button class="btn-normal" onclick="adjQty(-1)">-</button>
                 <input type="number" id="globalQty" value="1" min="1" style="width:60px; text-align:center; padding:10px; border:2px solid #000; border-radius:4px; font-weight:bold;">
                 <button class="btn-normal" onclick="adjQty(1)">+</button>
             </div>
-
-            <div class="print-list" id="printListArea"></div>
-
+            <div class="print-list" id="printListArea" style="max-height:150px;overflow-y:auto;border:1px solid #eee;margin-top:10px;"></div>
             <div style="display:flex; gap:10px; margin-top:auto;">
                 <button class="btn-normal" style="flex:1;" onclick="closePrint()">取消</button>
                 <button class="btn-flash-print" style="flex:1;" onclick="confirmPrint('PRINT')">打印</button>
@@ -329,92 +241,109 @@
         </div>
     </div>
 
-    <div id="editorOverlay">
-        <div class="editor-header">
-            <div style="font-weight:900;">🎨 编辑模板</div>
-            <div style="display:flex; gap:10px;">
-                <button class="btn-sm" onclick="closeEditor(false)">取消</button>
-                <button class="btn-sm" style="background:#000;color:#fff;" onclick="closeEditor(true)">保存</button>
-            </div>
-        </div>
-        <div class="editor-main">
-            <div class="canvas-area" onclick="deselectAll(event)">
-                <div id="templateCanvas" data-size="60mm x 30mm"></div>
-            </div>
-            <div class="settings-panel">
-                <div id="elePropBox" style="opacity:0.5; pointer-events:none;">
-                    <div style="font-weight:bold; margin-bottom:5px; border-bottom:1px solid #eee;">选中项设置</div>
-                    <div class="form-row">
-                        <div class="half"><label>X</label><input type="number" id="elX" oninput="updateEl()"></div>
-                        <div class="half"><label>Y</label><input type="number" id="elY" oninput="updateEl()"></div>
-                    </div>
-                    <div class="form-row">
-                        <div class="half"><label>宽</label><input type="number" id="elW" oninput="updateEl()"></div>
-                        <div class="half"><label>高</label><input type="number" id="elH" oninput="updateEl()"></div>
-                    </div>
-                    <div id="textProps">
-                         <div class="form-row"><label>内容</label><input type="text" id="elContent" oninput="updateEl()"></div>
-                         <div class="form-row"><label>字号</label><input type="number" id="elFont" oninput="updateEl()"></div>
-                         <div class="var-tags">
-                            <span class="var-tag" onclick="insertVar('{商品名}')">品名</span>
-                            <span class="var-tag" onclick="insertVar('{主仓}')">主仓</span>
-                            <span class="var-tag" onclick="insertVar('{副仓}')">副仓</span>
-                         </div>
-                         <div style="display:flex; gap:10px; margin-top:5px;">
-                            <button class="btn-sm" style="flex:1" onclick="toggleBold()">B 加粗</button>
-                            <button class="btn-sm" style="flex:1" onclick="setAlignH('center')">居中</button>
-                         </div>
-                    </div>
-                </div>
-                <div style="margin-top:20px; border-top:1px solid #eee; padding-top:10px;">
-                    <div style="font-weight:bold; margin-bottom:5px;">纸张 (mm)</div>
-                    <div class="form-row">
-                        <input type="number" id="cvW" placeholder="宽" onchange="updateCanvasSize()"> x 
-                        <input type="number" id="cvH" placeholder="高" onchange="updateCanvasSize()">
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="importModal" class="modal">
-        <div class="modal-content">
-            <h3>📥 批量导入</h3>
-            <textarea id="importArea" style="width:100%; height:150px; padding:10px; border:1px solid #ccc; border-radius:8px;" placeholder="粘贴Excel内容：名称 | 主仓 | 副仓"></textarea>
-            <div style="display:flex; gap:10px; width:100%;">
-                <button class="btn-normal" style="flex:1" onclick="closeImport()">取消</button>
-                <button class="btn-flash-print" style="flex:1" onclick="saveImport()">确认导入</button>
-            </div>
-        </div>
-    </div>
-
 <script>
-    const DB_NAME = "FuzzySearch_Mobile_V106";
-    let db, allData=[], currentResults=[], selectedIds=new Set();
-    let selectedEl = null;
-    let aliasMap = {}; 
+    // ============================================================
+    // 👇👇👇 你的 LeanCloud 钥匙 (已自动填好) 👇👇👇
+    // ============================================================
+    const LC_APP_ID  = "t2oaqogctST7YXDBw27y5VRJ-gzGzoHsz";
+    const LC_APP_KEY = "4QbfWe7IBPLDu8DRzyUwDEqo";
+    const LC_SERVER  = "https://t2oaqogc.lc-cn-n1-shared.com";
+    // ============================================================
 
-    // 默认标签配置
-    const EL_DEF = [ 
-        {id:'qr', name:'二维码', type:'qrcode', default:{x:2, y:2, w:26, h:26, ah:'center', av:'center'}}, 
-        {id:'name', name:'商品名', type:'text', txt:'{商品名}', default:{x:32, y:5, w:180, h:24, fs:13, bold:true, ah:'flex-start', av:'center'}},
-        {id:'main', name:'主仓', type:'text', txt:'{主仓}', default:{x:32, y:30, w:100, h:20, fs:16, bold:true, ah:'flex-start', av:'center'}},
-        {id:'sub', name:'副仓', type:'text', txt:'{副仓}', default:{x:92, y:34, w:60, h:15, fs:12, bold:true, ah:'flex-start', av:'center'}}, 
-        {id:'date', name:'日期', type:'text', txt:'{日期}', default:{x:4, y:38, w:40, h:12, fs:10, ah:'flex-start', av:'center'}},
-        {id:'page', name:'页码', type:'text', txt:'{页码}', default:{x:160, y:38, w:40, h:12, fs:10, ah:'center', av:'center'}}
-    ];
-    let layoutConfig = { w: 60, h: 30, elements: JSON.parse(JSON.stringify(EL_DEF)).map(e => ({...e, ...e.default, visible:true})) };
-
+    let allData=[], currentResults=[], selectedIds=new Set();
+    
+    // 初始化云端
     window.onload = () => {
-        initDB(); loadLayout(); loadAliases();
+        try {
+            AV.init({ appId: LC_APP_ID, appKey: LC_APP_KEY, serverURL: LC_SERVER });
+            console.log("云端连接成功");
+            loadDataCloud(); 
+        } catch(e) {
+            alert("云端连接失败，请检查配置！");
+        }
+        
         document.getElementById('searchInput').addEventListener('input', handleInput);
         document.getElementById('excludeInput').addEventListener('input', handleInput);
     };
 
-    /* --- 核心业务逻辑 --- */
-    function initDB() { const r=indexedDB.open(DB_NAME, 1); r.onupgradeneeded=e=>e.target.result.createObjectStore('products',{keyPath:'name'}); r.onsuccess=e=>{db=e.target.result;loadData();}; }
-    function loadData() { db.transaction(['products']).objectStore('products').getAll().onsuccess=e=>{allData=e.target.result; document.getElementById('dbCountDisp').innerText = allData.length;}; }
-    
+    // --- 云端数据操作 ---
+
+    // 1. 从云端拉取数据
+    function loadDataCloud() {
+        showToast("☁️ 正在同步数据...");
+        const query = new AV.Query('Product');
+        query.limit(1000); // 每次最多取1000条
+        query.descending('updatedAt'); // 按更新时间倒序
+        
+        query.find().then((results) => {
+            allData = results.map(r => ({
+                id: r.id, // 云端的唯一ID
+                name: r.get('name'),
+                main: r.get('main'),
+                sub: r.get('sub')
+            }));
+            document.getElementById('dbCountDisp').innerText = allData.length;
+            renderListCurrent();
+            showToast("✅ 同步完成");
+        }).catch((error) => {
+            console.error(error);
+            document.getElementById('resultList').innerHTML = `<div style="text-align:center;padding:20px;color:red;">数据获取失败<br>${error.message}</div>`;
+        });
+    }
+
+    // 2. 上传数据到云端
+    function saveImport() { 
+        const txt = document.getElementById('importArea').value;
+        const lines = txt.split('\n');
+        let objectsToSave = [];
+
+        lines.forEach(l => {
+            const p = l.split(/\t|\|/); // 支持 Tab 或 | 分隔
+            if(p[0]?.trim()){
+                // 创建一个 Product 对象
+                const product = new AV.Object('Product');
+                product.set('name', p[0].trim());
+                product.set('main', p[1]?.trim()||'');
+                product.set('sub', p[2]?.trim()||'');
+                objectsToSave.push(product);
+            }
+        });
+
+        if(objectsToSave.length === 0) return showToast("没检测到有效数据");
+
+        showToast(`正在上传 ${objectsToSave.length} 条...`);
+        
+        // 批量保存
+        AV.Object.saveAll(objectsToSave).then(() => {
+            showToast("✅ 上传成功！");
+            closeImport();
+            loadDataCloud(); // 重新拉取
+        }).catch((error) => {
+            alert("上传失败：" + error.message);
+        });
+    }
+
+    // 3. 清空云端数据
+    function clearDB() {
+        if(!confirm('⚠️ 高能预警：这将删除云端所有数据！\n电脑和手机都会变空！确定吗？')) return;
+        
+        showToast("正在删除...");
+        const query = new AV.Query('Product');
+        query.limit(1000);
+        query.find().then((results) => {
+            return AV.Object.destroyAll(results);
+        }).then(() => {
+            showToast("✅ 已清空");
+            allData = [];
+            renderListCurrent();
+            document.getElementById('dbCountDisp').innerText = 0;
+        }).catch((error) => {
+            alert("删除失败：" + error.message);
+        });
+    }
+
+    // --- 本地逻辑 ---
+
     function handleInput() {
         if(selectedIds.size > 0) { selectedIds.clear(); updateFooter(); }
         renderListCurrent(); 
@@ -430,10 +359,7 @@
         if(validInc.length > 0 || validExc.length > 0) {
             res = allData.filter(d => {
                 const name = d.name.toLowerCase();
-                const matchInc = validInc.length === 0 || validInc.every(k => {
-                    if(name.includes(k)) return true;
-                    const at = aliasMap[k]; return at && name.includes(at.toLowerCase());
-                });
+                const matchInc = validInc.length === 0 || validInc.every(k => name.includes(k));
                 const matchExc = validExc.length > 0 && validExc.some(k => name.includes(k));
                 return matchInc && !matchExc;
             });
@@ -441,10 +367,10 @@
         
         currentResults = res;
         const list = document.getElementById('resultList');
-        if(!res.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">🔍 未找到...</div>'; return; }
+        if(!res.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">🔍 没找到...</div>'; return; }
         
         let h = '';
-        res.slice(0, 50).forEach((item, idx) => { // 限制显示数量以提升手机性能
+        res.slice(0, 50).forEach((item, idx) => { 
             const isSel = selectedIds.has(item.name);
             const safeName = item.name.replace(/"/g, "&quot;");
             h += `
@@ -476,7 +402,11 @@
     }
     function clearSelection() { selectedIds.clear(); updateFooter(); renderListCurrent(); showToast('已清空选择'); }
 
-    /* --- 打印相关 --- */
+    /* --- 弹窗与打印逻辑 --- */
+    function openImport(){document.getElementById('importModal').style.display='flex';}
+    function closeImport(){document.getElementById('importModal').style.display='none';}
+    function showToast(msg){ const t=document.getElementById('toast'); t.innerText=msg; t.classList.add('active'); setTimeout(()=>t.classList.remove('active'), 1500); }
+
     function adjQty(n){ 
         const el = document.getElementById('globalQty'); 
         let v = parseInt(el.value)+n; 
@@ -500,15 +430,23 @@
             } catch(e) { sel.innerHTML='<option>❌ 错误</option>'; }
         }, 500);
     }
-    
+    function closePrint(){ document.getElementById('printModal').style.display='none'; }
     function quickDirectPrint() {
         if(selectedIds.size === 0) return showToast('请先选择');
         if(!localStorage.getItem('DefaultPrinterIndex')) return showToast('请先进入设置选择打印机');
         confirmPrint('DIRECT');
     }
 
+    // 打印配置
+    const printConfig = [ 
+        {type:'qrcode', x:2, y:2, w:26, h:26}, 
+        {type:'text', val:'{商品名}', x:32, y:5, w:180, h:24, fs:13, bold:true},
+        {type:'text', val:'{主仓}', x:32, y:30, w:100, h:20, fs:16, bold:true},
+        {type:'text', val:'{副仓}', x:92, y:34, w:60, h:15, fs:12, bold:true}
+    ];
+
     function confirmPrint(mode) {
-        if(typeof getCLodop !== 'function') return alert('未找到打印服务 (C-Lodop)\n请确认手机与电脑在同一WIFI，且JS引用IP正确。');
+        if(typeof getCLodop !== 'function') return alert('未找到打印服务 (C-Lodop)\n电脑需开启C-Lodop，且手机需在同Wifi。');
         const LODOP = getCLodop();
         let pIdx = document.getElementById('printerSelect').value;
         if(mode === 'DIRECT') pIdx = localStorage.getItem('DefaultPrinterIndex');
@@ -517,27 +455,22 @@
         const qty = parseInt(document.getElementById('globalQty').value) || 1;
         const dateStr = new Date().toLocaleDateString();
 
-        LODOP.PRINT_INIT("Mobile_Print_Task");
+        LODOP.PRINT_INIT("Cloud_Print_Task");
         if(pIdx) LODOP.SET_PRINTER_INDEX(pIdx);
-        LODOP.SET_PRINT_PAGESIZE(1, layoutConfig.w+"mm", layoutConfig.h+"mm", "");
+        LODOP.SET_PRINT_PAGESIZE(1, "60mm", "40mm", ""); 
 
         selectedIds.forEach(name => {
             const data = allData.find(d => d.name === name) || {};
             for(let i=0; i<qty; i++) {
                 LODOP.NewPage();
-                layoutConfig.elements.forEach(el => {
-                    if(!el.visible) return;
+                printConfig.forEach(el => {
                     if(el.type === 'qrcode') {
-                        let s = Math.min(el.w, el.h);
-                        LODOP.ADD_PRINT_BARCODE(el.y+(el.h-s)/2, el.x+(el.w-s)/2, s, s, "QRCode", name);
-                        LODOP.SET_PRINT_STYLEA(0, "QRCodeErrorLevel", "L");
+                        LODOP.ADD_PRINT_BARCODE(el.y, el.x, el.w, el.h, "QRCode", name);
                     } else {
-                        let txt = el.txt.replace('{商品名}', name).replace('{主仓}', data.main||'').replace('{副仓}', data.sub||'').replace('{日期}', dateStr).replace('{页码}', (i+1)+'/'+qty);
+                        let txt = el.val.replace('{商品名}', name).replace('{主仓}', data.main||'').replace('{副仓}', data.sub||'');
                         LODOP.ADD_PRINT_TEXT(el.y, el.x, el.w, el.h, txt);
                         LODOP.SET_PRINT_STYLEA(0, "FontSize", el.fs);
                         if(el.bold) LODOP.SET_PRINT_STYLEA(0, "Bold", 1);
-                        let a=1; if(el.ah==='center')a=2; if(el.ah==='flex-end')a=3;
-                        LODOP.SET_PRINT_STYLEA(0, "Alignment", a);
                     }
                 });
             }
@@ -545,164 +478,6 @@
         if(mode !== 'PREVIEW') { LODOP.PRINT(); showToast('指令已发送'); } else LODOP.PREVIEW();
         closePrint();
     }
-    function closePrint(){ document.getElementById('printModal').style.display='none'; }
-
-    /* --- 编辑器 (带触控支持) --- */
-    function openEditor() { 
-        document.getElementById('editorOverlay').style.display='flex'; 
-        document.getElementById('cvW').value=layoutConfig.w; 
-        document.getElementById('cvH').value=layoutConfig.h; 
-        updateCanvasSize(); renderEditorCanvas(); 
-    }
-    function closeEditor(save) {
-        if(save) {
-            layoutConfig.w = document.getElementById('cvW').value;
-            layoutConfig.h = document.getElementById('cvH').value;
-            layoutConfig.elements.forEach(item => {
-                const el = document.getElementById('edt-'+item.id);
-                if(el) {
-                    item.x=parseInt(el.style.left); item.y=parseInt(el.style.top);
-                    item.w=parseInt(el.style.width); item.h=parseInt(el.style.height);
-                    item.ah = el.style.justifyContent || 'center'; 
-                    if(item.type==='text') {
-                        item.fs=parseInt(el.style.fontSize)||12;
-                        item.bold=el.style.fontWeight==='bold';
-                        item.txt=el.getAttribute('data-raw');
-                    }
-                }
-            });
-            localStorage.setItem('LabelConfig_M106', JSON.stringify(layoutConfig));
-            showToast('已保存布局');
-        } else loadLayout();
-        document.getElementById('editorOverlay').style.display='none';
-    }
-    
-    function renderEditorCanvas() {
-        const c = document.getElementById('templateCanvas'); c.innerHTML='';
-        layoutConfig.elements.forEach(item => {
-            const div=document.createElement('div'); div.id='edt-'+item.id;
-            div.className='drag-element'; div.style.left=item.x+'px'; div.style.top=item.y+'px'; 
-            div.style.width=item.w+'px'; div.style.height=item.h+'px';
-            div.style.justifyContent=item.ah||'center'; div.style.alignItems='center';
-            if(item.type==='qrcode') div.innerHTML='<img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=QR" style="width:100%;height:100%;opacity:0.5;pointer-events:none;">';
-            else { 
-                div.textContent=item.txt; div.setAttribute('data-raw', item.txt);
-                div.style.fontSize=item.fs+'px'; if(item.bold) div.style.fontWeight='bold'; 
-            }
-            div.innerHTML+='<div class="resize-handle"></div>';
-            
-            // 鼠标事件
-            div.onmousedown=(e)=>startDrag(e,div,false);
-            // 触摸事件 (关键适配)
-            div.ontouchstart=(e)=>startDrag(e.touches[0],div,true);
-            
-            div.onclick=(e)=>selectElement(e,div);
-            c.appendChild(div);
-        });
-    }
-
-    // 统一拖拽逻辑
-    function startDrag(e, el, isTouch) {
-        e.stopPropagation?.();
-        selectElement({stopPropagation:()=>{}}, el);
-        const startX=e.clientX, startY=e.clientY;
-        const isResize = e.target.classList.contains('resize-handle');
-        const startW=parseInt(el.style.width), startH=parseInt(el.style.height);
-        const startL=el.offsetLeft, startT=el.offsetTop;
-
-        const moveHandler = (ev) => {
-            const point = isTouch ? ev.touches[0] : ev;
-            if(isResize) {
-                el.style.width = Math.max(10, startW + point.clientX - startX) + 'px';
-                el.style.height = Math.max(10, startH + point.clientY - startY) + 'px';
-            } else {
-                if(isTouch) ev.preventDefault(); // 防止手机滚动
-                el.style.left = (startL + point.clientX - startX) + 'px';
-                el.style.top = (startT + point.clientY - startY) + 'px';
-            }
-            updateInputs();
-        };
-
-        const endHandler = () => {
-            document.removeEventListener(isTouch?'touchmove':'mousemove', moveHandler);
-            document.removeEventListener(isTouch?'touchend':'mouseup', endHandler);
-        };
-
-        document.addEventListener(isTouch?'touchmove':'mousemove', moveHandler, {passive: false});
-        document.addEventListener(isTouch?'touchend':'mouseup', endHandler);
-    }
-
-    function selectElement(e, el) {
-        e.stopPropagation();
-        document.querySelectorAll('.drag-element').forEach(d=>d.classList.remove('active'));
-        el.classList.add('active'); selectedEl=el;
-        const box = document.getElementById('elePropBox'); box.style.opacity='1'; box.style.pointerEvents='auto';
-        updateInputs();
-        const isQr = el.querySelector('img');
-        document.getElementById('textProps').style.display = isQr ? 'none' : 'block';
-        if(!isQr) {
-            document.getElementById('elContent').value = el.getAttribute('data-raw');
-            document.getElementById('elFont').value = parseInt(el.style.fontSize);
-        }
-    }
-    
-    function deselectAll(e) { 
-        if(e.target.classList.contains('canvas-area') || e.target.id==='templateCanvas') {
-            document.querySelectorAll('.drag-element').forEach(d=>d.classList.remove('active')); selectedEl=null; 
-            document.getElementById('elePropBox').style.opacity='0.5';
-        }
-    }
-    function updateInputs(){ 
-        if(!selectedEl)return; 
-        document.getElementById('elX').value=parseInt(selectedEl.style.left); 
-        document.getElementById('elY').value=parseInt(selectedEl.style.top);
-        document.getElementById('elW').value=parseInt(selectedEl.style.width); 
-        document.getElementById('elH').value=parseInt(selectedEl.style.height);
-    }
-    function updateEl() {
-        if(!selectedEl)return; const s=selectedEl.style;
-        s.left=document.getElementById('elX').value+'px'; s.top=document.getElementById('elY').value+'px';
-        s.width=document.getElementById('elW').value+'px'; s.height=document.getElementById('elH').value+'px';
-        if(!selectedEl.querySelector('img')) {
-            const txt = document.getElementById('elContent').value;
-            selectedEl.childNodes[0].textContent=txt; selectedEl.setAttribute('data-raw', txt);
-            s.fontSize=document.getElementById('elFont').value+'px';
-        }
-    }
-    function updateCanvasSize(){ 
-        const c=document.getElementById('templateCanvas'); 
-        c.style.width=document.getElementById('cvW').value+'mm'; 
-        c.style.height=document.getElementById('cvH').value+'mm'; 
-    }
-    function insertVar(v){ if(selectedEl&&!selectedEl.querySelector('img')){ document.getElementById('elContent').value+=v; updateEl(); } }
-    function toggleBold(){ if(selectedEl) selectedEl.style.fontWeight=selectedEl.style.fontWeight==='bold'?'normal':'bold'; }
-    function setAlignH(v){ if(selectedEl) selectedEl.style.justifyContent=v; }
-    function loadLayout(){ const s=localStorage.getItem('LabelConfig_M106'); if(s) { const p=JSON.parse(s); layoutConfig=p; } }
-
-    /* --- 其他工具 --- */
-    function loadAliases() { const s = localStorage.getItem('SearchAliases'); if(s) aliasMap = JSON.parse(s); }
-    function openAliasModal() { 
-        document.getElementById('aliasModal').style.display='flex'; 
-        const t = document.getElementById('aliasTable'); t.innerHTML='';
-        Object.keys(aliasMap).forEach(k => t.innerHTML += `<tr><td><b>${k}</b></td><td>→ ${aliasMap[k]}</td><td style="text-align:right;"><span onclick="removeAlias('${k}')" style="color:red;font-weight:bold;padding:5px;">×</span></td></tr>`);
-    }
-    function closeAliasModal() { document.getElementById('aliasModal').style.display='none'; }
-    function addAlias() {
-        const k=document.getElementById('newAliasKey').value.trim().toLowerCase();
-        const v=document.getElementById('newAliasVal').value.trim();
-        if(k&&v){ aliasMap[k]=v; localStorage.setItem('SearchAliases',JSON.stringify(aliasMap)); openAliasModal(); renderListCurrent(); document.getElementById('newAliasKey').value='';}
-    }
-    function removeAlias(k){ delete aliasMap[k]; localStorage.setItem('SearchAliases',JSON.stringify(aliasMap)); openAliasModal(); renderListCurrent(); }
-    
-    function openImport(){document.getElementById('importModal').style.display='flex';}
-    function closeImport(){document.getElementById('importModal').style.display='none';}
-    function saveImport(){ 
-        const txt=document.getElementById('importArea').value; const tx=db.transaction(['products'],'readwrite'); 
-        let c=0; txt.split('\n').forEach(l=>{ const p=l.split(/\t|\|/); if(p[0]?.trim()){ tx.objectStore('products').put({name:p[0].trim(), main:p[1]?.trim()||'', sub:p[2]?.trim()||''}); c++; } }); 
-        tx.oncomplete=()=>{loadData();closeImport();showToast(`导入 ${c} 条`);}; 
-    }
-    function clearDB(){ if(confirm('⚠️ 确定清空所有数据?')) db.transaction(['products'],'readwrite').objectStore('products').clear().oncomplete=()=>{allData=[];currentResults=[];selectedIds.clear();document.getElementById('dbCountDisp').innerText=0;renderListCurrent();updateFooter();}; }
-    function showToast(msg){ const t=document.getElementById('toast'); t.innerText=msg; t.classList.add('active'); setTimeout(()=>t.classList.remove('active'), 1500); }
 </script>
 </body>
 </html>
