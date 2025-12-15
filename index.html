@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>聚火潭云端版 (V2.3)</title>
+    <title>聚火潭云端版 (V2.5 完美搜)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
 
@@ -41,7 +41,7 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 10;
         }
         .app-title { margin:0; font-size:18px; font-weight:900; display: flex; align-items: center; gap: 5px; }
-        .version-tag { font-size:10px; background:#8e44ad; color:#fff; padding:2px 4px; border-radius:4px; }
+        .version-tag { font-size:10px; background:#2980b9; color:#fff; padding:2px 4px; border-radius:4px; }
         
         .sys-actions { display: flex; gap: 8px; align-items: center; }
         .sys-actions .btn-sm { padding: 6px 10px; font-size: 12px; }
@@ -168,7 +168,7 @@
     <div class="top-header">
         <h1 class="app-title">
             <span>🔥 聚火潭云端</span> 
-            <span class="version-tag">V2.3</span>
+            <span class="version-tag">V2.5 完美搜</span>
         </h1>
         <div class="sys-actions">
             <span class="stock-info">云端共 <span id="dbCountDisp">...</span> 条</span>
@@ -179,7 +179,7 @@
 
     <div class="search-bar-row">
         <div class="search-group" style="flex:1">
-            <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜: P40 蓝色 (空格=同时满足)" autofocus onkeydown="if(event.keyCode==13) doCloudSearch()">
+            <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜: p40 黑色 (不分大小写)" autofocus onkeydown="if(event.keyCode==13) doCloudSearch()">
         </div>
         <div class="exclude-group" style="flex:1">
             <input type="text" id="excludeInput" class="input-exclude" placeholder="🚫 排: 坏 烂">
@@ -240,7 +240,7 @@
 
 <script>
     // ============================================================
-    // 👇👇👇 你的专用钥匙 👇👇👇
+    // 👇👇👇 你的专用钥匙 (新账号) 👇👇👇
     // ============================================================
     const LC_APP_ID  = "ZjVOXr4my7Gk7mqfDNyeWF8C-gzGzoHsz";
     const LC_APP_KEY = "UJn9xGwLPgzK0wmFvIBPUM8B";
@@ -267,7 +267,7 @@
         document.getElementById('excludeInput').addEventListener('input', doCloudSearch);
     };
 
-    // --- 核心：云端搜索逻辑 (修复版) ---
+    // --- 核心：云端搜索逻辑 (大小写通吃版) ---
 
     // 1. 初始化
     async function loadInitData() {
@@ -286,7 +286,7 @@
         });
     }
 
-    // 2. 执行云端搜索 (核心逻辑修正)
+    // 2. 执行云端搜索 (核心逻辑)
     function doCloudSearch() {
         const inputVal = document.getElementById('searchInput').value.trim();
         const excludeVal = document.getElementById('excludeInput').value.trim();
@@ -298,45 +298,55 @@
 
         document.getElementById('resultList').innerHTML = '<div style="text-align:center;padding:40px;color:#666;">☁️ 正在云端查找...</div>';
 
-        // --- 关键词处理 (空格分隔 -> 必须同时包含) ---
-        const keys = inputVal.split(/\s+/).filter(k => k); // 把 "P40 蓝色" 拆成 ["P40", "蓝色"]
+        // 关键词拆分 (空格分隔)
+        const keys = inputVal.split(/\s+/).filter(k => k);
         const exKeys = excludeVal.split(/\s+/).filter(k => k);
 
         let finalQuery;
 
-        // 如果没有关键词，只有排除词，则查询所有(带排除)
+        // 正则转义函数 (防止搜 * ? 报错)
+        const escapeReg = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        // 构建查询：使用正则实现 [忽略大小写] + [空格隔开同时满足]
         if (keys.length === 0) {
             finalQuery = new AV.Query('Product');
-        } else if (keys.length === 1) {
-            // 只有一个词，直接查
-            finalQuery = new AV.Query('Product');
-            finalQuery.contains('name', keys[0]);
         } else {
-            // 多个词，使用 AND 查询 (必须同时满足)
+            // 对每个关键词，都创建一个“忽略大小写”的查询
             const subQueries = keys.map(k => {
                 const q = new AV.Query('Product');
-                q.contains('name', k);
+                // 'i' 表示 ignore case (忽略大小写)
+                q.matches('name', new RegExp(escapeReg(k), 'i'));
                 return q;
             });
-            finalQuery = AV.Query.and(...subQueries);
+            
+            if (subQueries.length === 1) {
+                finalQuery = subQueries[0];
+            } else {
+                // 必须同时满足所有关键词
+                finalQuery = AV.Query.and(...subQueries);
+            }
         }
 
-        // --- 排除词处理 (云端排除) ---
-        if (exKeys.length > 0) {
-            exKeys.forEach(xk => {
-                finalQuery.doesNotContain('name', xk);
-            });
-        }
-
+        // 限制返回数量
         finalQuery.limit(100); 
         finalQuery.descending('updatedAt');
 
         finalQuery.find().then(results => {
             let list = results.map(r => ({ id:r.id, name:r.get('name'), main:r.get('main'), sub:r.get('sub') }));
+            
+            // 本地执行“排除”逻辑 (本地也做忽略大小写处理)
+            if (exKeys.length > 0) {
+                const lowerExKeys = exKeys.map(k => k.toLowerCase());
+                list = list.filter(item => {
+                    const itemName = item.name.toLowerCase();
+                    return !lowerExKeys.some(xk => itemName.includes(xk));
+                });
+            }
+
             renderList(list, list.length >= 100 ? "⚠️ 结果过多，建议增加关键词" : "");
         }).catch(e => {
             console.error(e);
-            document.getElementById('resultList').innerHTML = `<div style="text-align:center;padding:20px;color:red;">未找到结果，或网络错误</div>`;
+            document.getElementById('resultList').innerHTML = `<div style="text-align:center;padding:20px;color:red;">网络错误，请重试</div>`;
         });
     }
 
@@ -366,7 +376,7 @@
         list.innerHTML = h;
     }
 
-    // --- 上传/打印逻辑 (保持不变) ---
+    // --- 上传/打印逻辑 ---
 
     async function saveImport() { 
         const txt = document.getElementById('importArea').value;
@@ -497,25 +507,12 @@
         LODOP.SET_PRINT_PAGESIZE(1, "60mm", "40mm", ""); 
 
         selectedIds.forEach(name => {
-            let data = {};
-            // 从当前列表中尝试找数据
-            const allKnown = [...previewData]; // 这里可以优化
-            // 如果不在previewData里，因为是云搜索，数据只存在于dom或者临时变量，这里简化处理，直接打名字
-            // 如果需要严格打印仓位，需要保存搜索结果。
-            // 但考虑到用户搜索完后立即打印，DOM里有数据。
-            // 简单遍历 currentResults 
-            // 这里因为作用域问题，previewData可能不够。
-            // 修正：我们打印时，应该只打“已选中”的。
-            // 因为V2.2是云端搜索，数据没有全在本地，所以只能打印名字，或者尝试匹配。
-            // 为简单起见，V2.3版里打印将优先打印名字。
-            
             for(let i=0; i<qty; i++) {
                 LODOP.NewPage();
                 printConfig.forEach(el => {
                     if(el.type === 'qrcode') {
                         LODOP.ADD_PRINT_BARCODE(el.y, el.x, el.w, el.h, "QRCode", name);
                     } else {
-                        // 尝试在页面元素中找仓位信息（聪明做法）
                         let main='', sub='';
                         const items = document.querySelectorAll('.item');
                         items.forEach(it => {
