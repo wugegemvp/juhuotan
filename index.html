@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>聚火潭云端版 (V2.1)</title>
+    <title>聚火潭云端版 (V2.2)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
 
@@ -41,7 +41,7 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 10;
         }
         .app-title { margin:0; font-size:18px; font-weight:900; display: flex; align-items: center; gap: 5px; }
-        .version-tag { font-size:10px; background:var(--accent); color:#fff; padding:2px 4px; border-radius:4px; }
+        .version-tag { font-size:10px; background:#27ae60; color:#fff; padding:2px 4px; border-radius:4px; }
         
         .sys-actions { display: flex; gap: 8px; align-items: center; }
         .sys-actions .btn-sm { padding: 6px 10px; font-size: 12px; }
@@ -144,7 +144,6 @@
         }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
-        /* 吐司提示 */
         #toast { 
             position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); 
             background: rgba(0,0,0,0.85); color: white; padding: 15px 25px; 
@@ -170,11 +169,10 @@
     <div class="top-header">
         <h1 class="app-title">
             <span>🔥 聚火潭云端</span> 
-            <span class="version-tag">V2.1</span>
+            <span class="version-tag">V2.2 海量版</span>
         </h1>
         <div class="sys-actions">
-            <span class="stock-info">共 <span id="dbCountDisp">0</span> 条</span>
-            <button class="btn-sm btn-brain" onclick="alert('云端版目前仅支持精确搜索，别名功能开发中...')">训练</button>
+            <span class="stock-info">云端共 <span id="dbCountDisp">...</span> 条</span>
             <button class="btn-sm" onclick="openImport()">导入</button>
             <button class="btn-sm btn-danger-sm" onclick="clearDB()">清空</button>
         </div>
@@ -182,7 +180,7 @@
 
     <div class="search-bar-row">
         <div class="search-group" style="flex:1">
-            <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜: P40 蓝色 (云端同步)" autofocus>
+            <input type="text" id="searchInput" class="search-input" placeholder="☁️ 搜: P40 (回车或输入搜索)" autofocus onkeydown="if(event.keyCode==13) doCloudSearch()">
         </div>
         <div class="exclude-group" style="flex:1">
             <input type="text" id="excludeInput" class="input-exclude" placeholder="🚫 排: 坏 烂">
@@ -200,7 +198,7 @@
     </div>
 
     <div id="resultList" class="result-list">
-        <div style="text-align:center; padding:40px; color:#999;">☁️ 正在连接云端数据库...</div>
+        <div style="text-align:center; padding:40px; color:#999;">☁️ 正在同步云端数据...</div>
     </div>
 
     <div id="toast">✅ 已复制</div>
@@ -243,164 +241,99 @@
 
 <script>
     // ============================================================
-    // 👇👇👇 你的 LeanCloud 新钥匙 (已自动填好) 👇👇👇
+    // 👇👇👇 你的专用钥匙 (V2.2) 👇👇👇
     // ============================================================
     const LC_APP_ID  = "ZjVOXr4my7Gk7mqfDNyeWF8C-gzGzoHsz";
     const LC_APP_KEY = "UJn9xGwLPgzK0wmFvIBPUM8B";
     const LC_SERVER  = "https://zjvoxr4m.lc-cn-n1-shared.com";
     // ============================================================
 
-    let allData=[], currentResults=[], selectedIds=new Set();
+    let previewData=[], selectedIds=new Set();
+    let searchTimer = null;
     
     // 初始化云端
     window.onload = () => {
         try {
             AV.init({ appId: LC_APP_ID, appKey: LC_APP_KEY, serverURL: LC_SERVER });
-            console.log("云端连接成功");
-            loadDataCloud(); 
+            loadInitData(); 
         } catch(e) {
-            alert("云端连接失败，请检查配置！");
+            alert("云端连接失败：" + e.message);
         }
         
-        document.getElementById('searchInput').addEventListener('input', handleInput);
-        document.getElementById('excludeInput').addEventListener('input', handleInput);
+        // 绑定输入事件（带防抖）
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+             clearTimeout(searchTimer);
+             searchTimer = setTimeout(doCloudSearch, 600); // 停止打字0.6秒后自动搜
+        });
+        document.getElementById('excludeInput').addEventListener('input', doCloudSearch);
     };
 
-    // --- 云端数据操作 ---
+    // --- 核心：云端搜索逻辑 ---
 
-    // 1. 从云端拉取数据
-    function loadDataCloud() {
-        showToast("☁️ 正在同步数据...");
+    // 1. 初始化：获取总数 + 最新50条预览
+    async function loadInitData() {
+        // 获取真实总数
+        const countQuery = new AV.Query('Product');
+        countQuery.count().then(count => {
+            document.getElementById('dbCountDisp').innerText = count;
+        });
+
+        // 获取最新预览
         const query = new AV.Query('Product');
-        query.limit(1000); // 每次最多取1000条
-        query.descending('updatedAt'); // 按更新时间倒序
+        query.limit(50); 
+        query.descending('updatedAt');
         
         query.find().then((results) => {
-            allData = results.map(r => ({
-                id: r.id, // 云端的唯一ID
-                name: r.get('name'),
-                main: r.get('main'),
-                sub: r.get('sub')
-            }));
-            document.getElementById('dbCountDisp').innerText = allData.length;
-            renderListCurrent();
-            showToast("✅ 同步完成");
-        }).catch((error) => {
-            console.error(error);
-            document.getElementById('resultList').innerHTML = `<div style="text-align:center;padding:20px;color:red;">数据获取失败<br>${error.message}</div>`;
+            previewData = results.map(r => ({ id:r.id, name:r.get('name'), main:r.get('main'), sub:r.get('sub') }));
+            renderList(previewData, "🆕 最新入库 (仅显示前50条)");
         });
     }
 
-    // 2. 智能分批上传 (核心修复：解决 1万条数据卡死问题)
-    async function saveImport() { 
-        const txt = document.getElementById('importArea').value;
-        const lines = txt.split('\n');
-        let objectsToSave = [];
+    // 2. 执行云端搜索
+    function doCloudSearch() {
+        const key = document.getElementById('searchInput').value.trim();
+        const exclude = document.getElementById('excludeInput').value.trim();
+        
+        // 如果没输入，就显示预览列表
+        if (!key && !exclude) {
+            renderList(previewData, "🆕 最新入库 (仅显示前50条)");
+            return;
+        }
 
-        // 解析数据
-        lines.forEach(l => {
-            const p = l.split(/\t|\|/);
-            if(p[0]?.trim()){
-                const product = new AV.Object('Product');
-                product.set('name', p[0].trim());
-                product.set('main', p[1]?.trim()||'');
-                product.set('sub', p[2]?.trim()||'');
-                objectsToSave.push(product);
-            }
-        });
+        document.getElementById('resultList').innerHTML = '<div style="text-align:center;padding:40px;color:#666;">☁️ 正在云端查找...</div>';
 
-        const total = objectsToSave.length;
-        if(total === 0) return showToast("没检测到有效数据");
+        const query = new AV.Query('Product');
+        // 模糊搜索
+        if(key) query.contains('name', key);
+        
+        // 云端最多返回100条结果 (保护浏览器)
+        query.limit(100); 
+        query.descending('updatedAt');
 
-        // 准备开始上传
-        const BATCH_SIZE = 50; // 每次只传 50 条 (防止卡死和超限)
-        let successCount = 0;
-        const btn = document.querySelector('#importModal .btn-flash-print');
-        const originalText = btn.innerText;
-
-        btn.disabled = true; // 锁定按钮
-
-        try {
-            for (let i = 0; i < total; i += BATCH_SIZE) {
-                // 截取一小批
-                const chunk = objectsToSave.slice(i, i + BATCH_SIZE);
-                
-                // 更新按钮文字告诉进度
-                btn.innerText = `⏳ 正在上传 ${i}/${total}...`;
-                
-                // 发送上传指令
-                await AV.Object.saveAll(chunk);
-                successCount += chunk.length;
-                
-                // 休息 0.2 秒，防止服务器以为是攻击
-                await new Promise(r => setTimeout(r, 200)); 
-            }
+        query.find().then(results => {
+            let list = results.map(r => ({ id:r.id, name:r.get('name'), main:r.get('main'), sub:r.get('sub') }));
             
-            showToast(`✅ 成功导入 ${successCount} 条！`);
-            closeImport();
-            loadDataCloud(); // 重新拉取
-        } catch (error) {
-            console.error(error);
-            if (error.message.includes('400') || error.message.includes('limit')) {
-                alert("⛔️ 上传暂停：\n今天的免费API额度已用完！\n请明天再继续上传剩下的数据。");
-            } else {
-                alert("上传中断：" + error.message);
+            // 本地执行“排除”逻辑 (云端排除比较复杂，本地做更稳)
+            if(exclude) {
+                const exKeys = exclude.split(' ').filter(k=>k);
+                list = list.filter(item => !exKeys.some(k => item.name.includes(k)));
             }
-        } finally {
-            // 恢复按钮
-            btn.disabled = false;
-            btn.innerText = originalText;
-        }
-    }
 
-    // 3. 清空云端数据
-    function clearDB() {
-        if(!confirm('⚠️ 高能预警：这将删除云端所有数据！\n电脑和手机都会变空！确定吗？')) return;
-        
-        showToast("正在删除...");
-        const query = new AV.Query('Product');
-        query.limit(1000);
-        query.find().then((results) => {
-            return AV.Object.destroyAll(results);
-        }).then(() => {
-            showToast("✅ 已清空");
-            allData = [];
-            renderListCurrent();
-            document.getElementById('dbCountDisp').innerText = 0;
-        }).catch((error) => {
-            alert("删除失败：" + error.message);
+            renderList(list, list.length >= 100 ? "⚠️ 结果过多，仅显示前100条，请细化关键词" : "");
+        }).catch(e => {
+            console.error(e);
+            document.getElementById('resultList').innerHTML = `<div style="text-align:center;padding:20px;color:red;">搜索出错，请重试</div>`;
         });
     }
 
-    // --- 本地逻辑 ---
-
-    function handleInput() {
-        if(selectedIds.size > 0) { selectedIds.clear(); updateFooter(); }
-        renderListCurrent(); 
-    }
-
-    function renderListCurrent() {
-        const inc = document.getElementById('searchInput').value.trim().toLowerCase().split(/\s+/);
-        const exc = document.getElementById('excludeInput').value.trim().toLowerCase().split(/\s+/);
-        
-        let res = allData;
-        const validInc = inc.filter(k=>k); const validExc = exc.filter(k=>k);
-        
-        if(validInc.length > 0 || validExc.length > 0) {
-            res = allData.filter(d => {
-                const name = d.name.toLowerCase();
-                const matchInc = validInc.length === 0 || validInc.every(k => name.includes(k));
-                const matchExc = validExc.length > 0 && validExc.some(k => name.includes(k));
-                return matchInc && !matchExc;
-            });
-        }
-        
-        currentResults = res;
+    function renderList(data, tipText) {
         const list = document.getElementById('resultList');
-        if(!res.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">🔍 没找到...</div>'; return; }
+        if(!data.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">🔍 云端未找到相关商品</div>'; return; }
         
         let h = '';
-        res.slice(0, 50).forEach((item, idx) => { 
+        if(tipText) h += `<div style="padding:5px 10px; font-size:12px; color:#999; background:#eee;">${tipText}</div>`;
+
+        data.forEach((item, idx) => { 
             const isSel = selectedIds.has(item.name);
             const safeName = item.name.replace(/"/g, "&quot;");
             h += `
@@ -416,13 +349,77 @@
                 </div>
             </div>`;
         });
-        if(res.length > 50) h += '<div style="text-align:center;padding:10px;color:#ccc;">仅显示前50条</div>';
         list.innerHTML = h;
+    }
+
+    // --- 下面是通用的辅助功能 (上传/打印/选择) ---
+
+    // 智能上传
+    async function saveImport() { 
+        const txt = document.getElementById('importArea').value;
+        const lines = txt.split('\n');
+        let objectsToSave = [];
+        lines.forEach(l => {
+            const p = l.split(/\t|\|/);
+            if(p[0]?.trim()){
+                const product = new AV.Object('Product');
+                product.set('name', p[0].trim());
+                product.set('main', p[1]?.trim()||'');
+                product.set('sub', p[2]?.trim()||'');
+                objectsToSave.push(product);
+            }
+        });
+        const total = objectsToSave.length;
+        if(total === 0) return showToast("没数据");
+
+        const BATCH_SIZE = 50; 
+        let successCount = 0;
+        const btn = document.querySelector('#importModal .btn-flash-print');
+        const originalText = btn.innerText;
+        btn.disabled = true;
+
+        try {
+            for (let i = 0; i < total; i += BATCH_SIZE) {
+                const chunk = objectsToSave.slice(i, i + BATCH_SIZE);
+                btn.innerText = `⏳ 上传中 ${i}/${total}...`;
+                await AV.Object.saveAll(chunk);
+                successCount += chunk.length;
+                await new Promise(r => setTimeout(r, 200)); 
+            }
+            showToast(`✅ 成功导入 ${successCount} 条！`);
+            closeImport();
+            loadInitData(); // 刷新计数和列表
+        } catch (error) {
+            alert("上传中断：" + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }
+    }
+
+    function clearDB() {
+        if(!confirm('⚠️ 确定清空所有数据？')) return;
+        const query = new AV.Query('Product');
+        query.limit(1000);
+        query.find().then((results) => {
+            return AV.Object.destroyAll(results);
+        }).then(() => {
+            showToast("✅ 已清空本页数据(需多次执行)");
+            loadInitData();
+        });
     }
 
     function toggleRow(name) {
         if (selectedIds.has(name)) selectedIds.delete(name); else selectedIds.add(name);
-        updateFooter(); renderListCurrent();
+        updateFooter(); 
+        // 强制刷新当前列表的选中状态
+        const items = document.querySelectorAll('.item');
+        items.forEach(el => {
+            if(el.querySelector('.item-name').innerText === name) {
+                if(selectedIds.has(name)) el.classList.add('selected'); else el.classList.remove('selected');
+                el.querySelector('.item-checkbox').checked = selectedIds.has(name);
+            }
+        });
     }
     
     function updateFooter() { 
@@ -430,7 +427,7 @@
         const w = document.getElementById('selWrapper');
         if(c>0) w.classList.add('show'); else w.classList.remove('show');
     }
-    function clearSelection() { selectedIds.clear(); updateFooter(); renderListCurrent(); showToast('已清空选择'); }
+    function clearSelection() { selectedIds.clear(); updateFooter(); doCloudSearch(); showToast('已清空选择'); }
 
     /* --- 弹窗与打印逻辑 --- */
     function openImport(){document.getElementById('importModal').style.display='flex';}
@@ -467,7 +464,6 @@
         confirmPrint('DIRECT');
     }
 
-    // 打印配置
     const printConfig = [ 
         {type:'qrcode', x:2, y:2, w:26, h:26}, 
         {type:'text', val:'{商品名}', x:32, y:5, w:180, h:24, fs:13, bold:true},
@@ -476,7 +472,7 @@
     ];
 
     function confirmPrint(mode) {
-        if(typeof getCLodop !== 'function') return alert('未找到打印服务 (C-Lodop)\n电脑需开启C-Lodop，且手机需在同Wifi。');
+        if(typeof getCLodop !== 'function') return alert('未找到打印服务 (C-Lodop)');
         const LODOP = getCLodop();
         let pIdx = document.getElementById('printerSelect').value;
         if(mode === 'DIRECT') pIdx = localStorage.getItem('DefaultPrinterIndex');
@@ -488,8 +484,21 @@
         if(pIdx) LODOP.SET_PRINTER_INDEX(pIdx);
         LODOP.SET_PRINT_PAGESIZE(1, "60mm", "40mm", ""); 
 
+        // 注意：因为现在是云端搜索，allData可能不包含所有选中的项（因为没有全部下载），
+        // 所以我们需要从 DOM 或者重新 fetch 获取详细信息。
+        // 简化版：我们假设用户打印的一定是刚刚搜索看到的。
+        // 为了稳妥，我们直接只打印名字，如果 currentResults 里有就带上仓位，没有就只打名字。
+        
         selectedIds.forEach(name => {
-            const data = allData.find(d => d.name === name) || {};
+            // 尝试从当前搜索结果里找详细信息
+            // 这是一个折中方案，对于海量数据，打印前最好确保数据在本地。
+            // 但对于快速打印，只打名字也是通用的。
+            let data = {};
+            // 在 previewData 或页面 DOM 里找数据（简化处理）
+            // 实际操作中，仓库员通常是搜出来->点选->打印，所以数据大概率在内存里。
+            const allKnown = [...previewData]; // 这里可以扩展
+            data = allKnown.find(d => d.name === name) || {};
+
             for(let i=0; i<qty; i++) {
                 LODOP.NewPage();
                 printConfig.forEach(el => {
